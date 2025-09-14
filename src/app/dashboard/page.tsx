@@ -4,13 +4,39 @@ import { useAuth } from '@/contexts/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+interface UserStats {
+  totalQuietBlocks: number
+  completedQuietBlocks: number
+  totalMinutesScheduled: number
+  joinedDate: string
+}
+
+interface MongoUser {
+  id: string
+  supabaseId: string
+  email: string
+  name?: string
+  preferences: {
+    timezone: string
+    reminderEnabled: boolean
+    reminderMinutesBefore: number
+    defaultQuietBlockDuration: number
+    notificationEmail?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
 export default function Dashboard() {
-  const { user, loading, signOut } = useAuth()
+  const { user, mongoUserId, loading, signOut } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [showConfirmationMessage, setShowConfirmationMessage] = useState(false)
+  const [mongoUser, setMongoUser] = useState<MongoUser | null>(null)
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [loadingData, setLoadingData] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -27,6 +53,40 @@ export default function Dashboard() {
       setTimeout(() => setShowConfirmationMessage(false), 5000)
     }
   }, [searchParams])
+
+  // Fetch MongoDB user data and stats
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user || !mongoUserId) return
+      
+      setLoadingData(true)
+      try {
+        // Fetch user data
+        const userResponse = await fetch('/api/users/me')
+        if (userResponse.ok) {
+          const userResult = await userResponse.json()
+          if (userResult.success) {
+            setMongoUser(userResult.data)
+          }
+        }
+
+        // Fetch user stats
+        const statsResponse = await fetch('/api/users/stats')
+        if (statsResponse.ok) {
+          const statsResult = await statsResponse.json()
+          if (statsResult.success) {
+            setUserStats(statsResult.data)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+      } finally {
+        setLoadingData(false)
+      }
+    }
+
+    fetchUserData()
+  }, [user, mongoUserId])
 
   useEffect(() => {
     // Add a timeout to prevent infinite loading
@@ -163,25 +223,111 @@ export default function Dashboard() {
         )}
 
         <div className="px-4 py-6 sm:px-0">
-          <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 p-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Welcome to your Dashboard!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                You are successfully authenticated. This is a protected route.
-              </p>
-              
-              <div className="bg-white shadow rounded-lg p-6 max-w-md mx-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  User Information
-                </h3>
-                <div className="text-left text-black space-y-2">
-                  <p><strong>Email:</strong> {user.email}</p>
-                  <p><strong>User ID:</strong> {user.id}</p>
-                  <p><strong>Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
-                  <p><strong>Last Sign In:</strong> {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A'}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* User Information Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                User Information
+              </h3>
+              {loadingData ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
                 </div>
+              ) : mongoUser ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Email</p>
+                      <p className="font-medium">{mongoUser.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Name</p>
+                      <p className="font-medium">{mongoUser.name || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">MongoDB ID</p>
+                      <p className="font-medium text-xs">{mongoUser.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Timezone</p>
+                      <p className="font-medium">{mongoUser.preferences.timezone}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Joined</p>
+                      <p className="font-medium">{new Date(mongoUser.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Reminders</p>
+                      <p className="font-medium">
+                        {mongoUser.preferences.reminderEnabled ? 'Enabled' : 'Disabled'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500">Failed to load user data</p>
+              )}
+            </div>
+
+            {/* User Statistics Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Statistics
+              </h3>
+              {loadingData ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              ) : userStats ? (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-center p-3 bg-blue-50 rounded">
+                    <p className="text-2xl font-bold text-blue-600">{userStats.totalQuietBlocks}</p>
+                    <p className="text-gray-600">Total Blocks</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded">
+                    <p className="text-2xl font-bold text-green-600">{userStats.completedQuietBlocks}</p>
+                    <p className="text-gray-600">Completed</p>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded">
+                    <p className="text-2xl font-bold text-purple-600">{Math.round(userStats.totalMinutesScheduled)}</p>
+                    <p className="text-gray-600">Minutes Scheduled</p>
+                  </div>
+                  <div className="text-center p-3 bg-orange-50 rounded">
+                    <p className="text-2xl font-bold text-orange-600">
+                      {userStats.totalQuietBlocks > 0 
+                        ? Math.round((userStats.completedQuietBlocks / userStats.totalQuietBlocks) * 100)
+                        : 0}%
+                    </p>
+                    <p className="text-gray-600">Completion Rate</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500">No statistics available yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* System Status */}
+          <div className="mt-8 bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              System Status
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${user ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                <span>Supabase Auth: {user ? 'Connected' : 'Disconnected'}</span>
+              </div>
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${mongoUserId ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                <span>MongoDB Sync: {mongoUserId ? 'Synced' : 'Not Synced'}</span>
+              </div>
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${mongoUser ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                <span>User Data: {mongoUser ? 'Loaded' : loadingData ? 'Loading' : 'Failed'}</span>
               </div>
             </div>
           </div>

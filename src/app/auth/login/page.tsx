@@ -1,4 +1,13 @@
+import { Suspense } from 'react'
 import LoginForm from '@/components/auth/login-form'
+
+function LoginFormWithSuspense() {
+  return (
+    <Suspense fallback={<div className="text-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
+  )
+}
 
 export default function LoginPage() {
   return (
@@ -13,7 +22,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <LoginForm />
+        <LoginFormWithSuspense />
       </div>
     </div>
   )

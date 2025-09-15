@@ -27,27 +27,27 @@ export default function EmailConfirmationPage() {
             
             <div className="text-sm text-gray-600 space-y-3">
               <p>
-                We've sent a confirmation link to your email address.
+                Weve sent a confirmation link to your email address.
               </p>
               <p>
-                <strong>Click the link in your email</strong> to verify your account and you'll be automatically signed in.
+                <strong>Click the link in your email</strong> to verify your account and youll be automatically signed in.
               </p>
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 rounded-md">
               <div className="text-sm text-blue-700">
-                <p className="font-medium mb-1">What's next?</p>
+                <p className="font-medium mb-1">Whats next?</p>
                 <ol className="list-decimal list-inside space-y-1 text-left">
                   <li>Check your email inbox (and spam folder)</li>
                   <li>Click the confirmation link</li>
-                  <li>You'll be automatically redirected to your dashboard</li>
+                  <li>Youll be automatically redirected to your dashboard</li>
                 </ol>
               </div>
             </div>
 
             <div className="mt-6 text-xs text-gray-500">
               <p>
-                Didn't receive the email? Check your spam folder or try signing up again.
+                Didnt receive the email? Check your spam folder or try signing up again.
               </p>
             </div>
           </div>

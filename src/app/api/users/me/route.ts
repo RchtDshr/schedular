@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { UserService } from '@/lib/services/userService'
 
 // GET /api/users/me - Get current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user: supabaseUser }, error } = await supabase.auth.getUser()

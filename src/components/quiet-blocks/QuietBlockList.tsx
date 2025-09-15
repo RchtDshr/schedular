@@ -133,10 +133,8 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
 
   const filterBlocks = (blocks: QuietBlock[]) => {
     const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
     return blocks.filter(block => {
-      const blockDate = new Date(block.date)
       const blockDateTime = new Date(`${block.date}T${block.startTime}`)
 
       switch (filter) {

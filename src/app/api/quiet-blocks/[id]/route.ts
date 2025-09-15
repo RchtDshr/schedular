@@ -11,13 +11,14 @@ import {
 import { checkQuietBlockOverlap, validateTimeSlot } from '@/lib/utils/timeValidation'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 // GET /api/quiet-blocks/[id] - Get single quiet block
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params
   try {
     // Authenticate user
     const supabase = await createClient()
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get the quiet block
-    const quietBlock = await QuietBlockService.getQuietBlockById(params.id, supabaseUser.id)
+    const quietBlock = await QuietBlockService.getQuietBlockById(id, supabaseUser.id)
 
     if (!quietBlock) {
       return NextResponse.json(
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // PUT /api/quiet-blocks/[id] - Update quiet block
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params
   try {
     // Authenticate user
     const supabase = await createClient()
@@ -175,7 +177,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const overlapCheck = checkQuietBlockOverlap(
         { startTime: startTime, endTime: endTime },
         existingBlocks,
-        params.id // Exclude the current block from overlap check
+        id // Exclude the current block from overlap check
       )
 
       if (overlapCheck.hasOverlap) {
@@ -198,7 +200,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update the quiet block
     const updatedQuietBlock = await QuietBlockService.updateQuietBlock(
-      params.id,
+      id,
       supabaseUser.id,
       updateData
     )
@@ -261,6 +263,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 // DELETE /api/quiet-blocks/[id] - Delete (soft delete) quiet block
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params
   try {
     // Authenticate user
     const supabase = await createClient()
@@ -274,7 +277,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get the quiet block first (to get title for event)
-    const quietBlock = await QuietBlockService.getQuietBlockById(params.id, supabaseUser.id)
+    const quietBlock = await QuietBlockService.getQuietBlockById(id, supabaseUser.id)
 
     if (!quietBlock) {
       return NextResponse.json(
@@ -284,7 +287,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete the quiet block (soft delete)
-    const deletedQuietBlock = await QuietBlockService.deleteQuietBlock(params.id, supabaseUser.id)
+    const deletedQuietBlock = await QuietBlockService.deleteQuietBlock(id, supabaseUser.id)
 
     if (!deletedQuietBlock) {
       return NextResponse.json(
@@ -296,7 +299,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Trigger Supabase event for real-time updates
     await SupabaseEventService.triggerDeleted(
       supabaseUser.id,
-      params.id,
+      id,
       {
         title: quietBlock.title
       }
@@ -306,7 +309,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       success: true,
       message: 'Quiet block deleted successfully',
       data: {
-        id: params.id,
+        id: id,
         title: quietBlock.title,
         deletedAt: new Date().toISOString()
       }
@@ -327,6 +330,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
 // PATCH /api/quiet-blocks/[id]/complete - Mark quiet block as completed
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params
   try {
     // Check if this is the complete endpoint
     const { searchParams } = new URL(request.url)
@@ -376,7 +380,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Complete the quiet block
     const completedQuietBlock = await QuietBlockService.completeQuietBlock(
-      params.id,
+      id,
       supabaseUser.id,
       processedCompleteData
     )
@@ -391,7 +395,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Trigger Supabase event for real-time updates
     await SupabaseEventService.triggerCompleted(
       supabaseUser.id,
-      params.id,
+      id,
       {
         title: completedQuietBlock.title,
         actualStartTime: completedQuietBlock.actualStartTime,

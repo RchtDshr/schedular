@@ -111,6 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, confirmPassword: string) => {
     setLoading(true)
     try {
+      // Validate password confirmation
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match')
+      }
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

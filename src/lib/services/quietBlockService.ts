@@ -86,7 +86,7 @@ export class QuietBlockService {
         isDeleted: verifyBlock?.isDeleted 
       })
 
-      let query: any = { 
+      const query: any = { 
         supabaseUserId,
         $or: [
           { isDeleted: false },
@@ -185,7 +185,7 @@ export class QuietBlockService {
     await connectToDatabase()
 
     try {
-      let query: any = { 
+      const query: any = { 
         supabaseUserId,
         $or: [
           { isDeleted: false },

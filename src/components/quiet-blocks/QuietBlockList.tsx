@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button, ConfirmationModal } from '@/components/ui'
 import { CalendarIcon, ClockIcon } from '@/components/ui'
 import { useAuth } from '@/contexts/auth-context'
 import { useToast } from '@/components/ui/toast'
@@ -38,6 +38,15 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'active'>('all')
   const [sortBy, setSortBy] = useState<'date' | 'priority' | 'title'>('date')
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean
+    blockId: string | null
+    blockTitle: string
+  }>({
+    isOpen: false,
+    blockId: null,
+    blockTitle: ''
+  })
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -77,20 +86,30 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
   }
 
   const handleDelete = async (id: string) => {
-    // Find the block to get its title for the toast message
+    // Find the block to get its title for the modal
     const blockToDelete = blocks.find(block => block._id === id)
     const blockTitle = blockToDelete?.title || 'Quiet Block'
     
-    if (!confirm(`Are you sure you want to delete "${blockTitle}"?`)) return
+    // Show confirmation modal
+    setDeleteConfirmation({
+      isOpen: true,
+      blockId: id,
+      blockTitle: blockTitle
+    })
+  }
+
+  const confirmDelete = async () => {
+    const { blockId, blockTitle } = deleteConfirmation
+    if (!blockId) return
     
     try {
-      const response = await fetch(`/api/quiet-blocks/${id}`, {
+      const response = await fetch(`/api/quiet-blocks/${blockId}`, {
         method: 'DELETE'
       })
       
       if (response.ok) {
-        setBlocks(blocks.filter(block => block._id !== id))
-        onDelete?.(id)
+        setBlocks(blocks.filter(block => block._id !== blockId))
+        onDelete?.(blockId)
         showToast({
           message: `"${blockTitle}" successfully deleted!`,
           type: 'success'
@@ -319,6 +338,18 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteConfirmation.isOpen}
+        onClose={() => setDeleteConfirmation({ isOpen: false, blockId: null, blockTitle: '' })}
+        onConfirm={confirmDelete}
+        title="Delete Quiet Block"
+        description={`Are you sure you want to delete "${deleteConfirmation.blockTitle}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   )
 }

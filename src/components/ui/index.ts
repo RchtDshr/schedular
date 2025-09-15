@@ -8,3 +8,4 @@ export { Card, CardContent, CardDescription, CardHeader, CardTitle } from './car
 export { Badge } from './badge'
 export { CalendarIcon, ClockIcon, AlertCircle, Plus, X } from './icons'
 export { ToastProvider, useToast } from './toast'
+export { ConfirmationModal } from './confirmation-modal'

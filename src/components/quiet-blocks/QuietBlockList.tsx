@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
 import { CalendarIcon, ClockIcon } from '@/components/ui'
 import { useAuth } from '@/contexts/auth-context'
+import { useToast } from '@/components/ui/toast'
 
 interface QuietBlock {
   _id: string
@@ -32,6 +33,7 @@ interface QuietBlockListProps {
 
 export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps) {
   const { user, loading: authLoading } = useAuth()
+  const { showToast } = useToast()
   const [blocks, setBlocks] = useState<QuietBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'active'>('all')
@@ -75,7 +77,11 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this quiet block?')) return
+    // Find the block to get its title for the toast message
+    const blockToDelete = blocks.find(block => block._id === id)
+    const blockTitle = blockToDelete?.title || 'Quiet Block'
+    
+    if (!confirm(`Are you sure you want to delete "${blockTitle}"?`)) return
     
     try {
       const response = await fetch(`/api/quiet-blocks/${id}`, {
@@ -85,11 +91,24 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
       if (response.ok) {
         setBlocks(blocks.filter(block => block._id !== id))
         onDelete?.(id)
+        showToast({
+          message: `"${blockTitle}" successfully deleted!`,
+          type: 'success'
+        })
       } else {
-        console.error('Failed to delete quiet block:', await response.text())
+        const errorText = await response.text()
+        console.error('Failed to delete quiet block:', errorText)
+        showToast({
+          message: `Failed to delete "${blockTitle}". Please try again.`,
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error deleting quiet block:', error)
+      showToast({
+        message: `Error deleting "${blockTitle}". Please check your connection and try again.`,
+        type: 'error'
+      })
     }
   }
 

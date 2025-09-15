@@ -83,17 +83,36 @@ export async function POST(request: NextRequest) {
     )
 
     if (overlapCheck.hasOverlap) {
+      const conflictDetails = overlapCheck.conflictingBlocks.map(block => {
+        const startTime = new Date(block.startTime).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        })
+        const endTime = new Date(block.endTime).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        })
+        return {
+          id: (block._id as any).toString(),
+          title: block.title,
+          startTime: block.startTime,
+          endTime: block.endTime,
+          timeDisplay: `${startTime} - ${endTime}`
+        }
+      })
+
+      const conflictMessage = conflictDetails.length === 1 
+        ? `Schedule conflicts with "${conflictDetails[0].title}" (${conflictDetails[0].timeDisplay}).`
+        : `Schedule conflicts with ${conflictDetails.length} existing schedules: ${conflictDetails.map(c => `"${c.title}" (${c.timeDisplay})`).join(', ')}.`
+
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Time conflict detected',
-          message: overlapCheck.message,
-          conflictingBlocks: overlapCheck.conflictingBlocks.map(block => ({
-            id: (block._id as any).toString(),
-            title: block.title,
-            startTime: block.startTime,
-            endTime: block.endTime
-          }))
+          error: 'SCHEDULE_CONFLICT',
+          message: conflictMessage,
+          conflictingBlocks: conflictDetails
         },
         { status: 409 }
       )

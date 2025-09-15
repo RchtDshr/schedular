@@ -25,7 +25,8 @@ import {
   ClockIcon,
   AlertCircle,
   Plus,
-  X
+  X,
+  useToast
 } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
@@ -74,6 +75,7 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
   const [newTag, setNewTag] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const { showToast } = useToast()
 
   const {
     register,
@@ -235,6 +237,21 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
         const errorData = await response.json()
         console.error('API Error:', errorData)
         
+        // Handle schedule conflicts for both creation and editing
+        if (errorData.error === 'SCHEDULE_CONFLICT') {
+          const conflictDetails = errorData.conflictingBlocks || []
+          const conflictList = conflictDetails.map((block: any) => 
+            `• "${block.title}" (${block.timeDisplay})`
+          ).join('\n')
+          
+          const action = isEditing ? 'Update' : 'Create'
+          showToast({
+            message: `Cannot ${action} Schedule - Time Conflict!\n\nYour schedule overlaps with:\n${conflictList}\n\nPlease choose a different time slot.`,
+            type: 'error'
+          })
+          return // Just return, don't proceed with creation/editing
+        }
+        
         let errorMessage = 'Failed to save quiet block'
         if (errorData.details && Array.isArray(errorData.details)) {
           errorMessage = errorData.details.map((issue: any) => 
@@ -247,10 +264,20 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
         throw new Error(errorMessage)
       }
 
+      // Show success toast
+      const action = isEditing ? 'updated' : 'created'
+      showToast({
+        message: `Quiet block successfully ${action}!`,
+        type: 'success'
+      })
+
       onSuccess?.()
     } catch (error) {
       console.error('Error submitting form:', error)
-      alert(error instanceof Error ? error.message : 'Failed to save quiet block')
+      showToast({
+        message: error instanceof Error ? error.message : 'Failed to save quiet block',
+        type: 'error'
+      })
     } finally {
       setIsLoading(false)
     }

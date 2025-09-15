@@ -288,7 +288,7 @@ serve(async (req: any) => {
 
     // Since we can't use Mongoose in edge functions, we'll use MongoDB native driver
     // or make HTTP requests to our Next.js API
-    const nextjsApiUrl = Deno.env.get('NEXTJS_API_URL') || 'http://localhost:3000'
+    const nextjsApiUrl = Deno.env.get('NEXTJS_API_URL') || 'https://schedular-34hl.vercel.app'
     
     // Call our existing Next.js API endpoint
     const response = await fetch(`${nextjsApiUrl}/api/cron/send-reminders`, {

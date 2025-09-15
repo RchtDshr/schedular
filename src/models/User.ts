@@ -96,9 +96,7 @@ const UserSchema = new Schema<IUser>({
   collection: 'users'
 })
 
-// Indexes for better query performance
-UserSchema.index({ supabaseId: 1 })
-UserSchema.index({ email: 1 })
+// Indexes for better query performance (removing duplicates since unique:true already creates indexes)
 UserSchema.index({ createdAt: -1 })
 
 // Instance methods

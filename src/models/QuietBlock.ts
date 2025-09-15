@@ -5,13 +5,29 @@ export interface IQuietBlock extends Document {
   userId: Types.ObjectId
   supabaseUserId: string
   title: string
+  description?: string
   startTime: Date
   endTime: Date
-  status: 'scheduled' | 'active' | 'completed' | 'cancelled' | 'missed'
+  priority: 'low' | 'medium' | 'high'
+  status: 'scheduled' | 'active' | 'completed' | 'cancelled'
+  isRecurring: boolean
+  recurrencePattern: 'none' | 'daily' | 'weekly' | 'monthly'
+  recurrenceEnd?: Date
+  reminderConfig: {
+    enabled: boolean
+    minutesBefore: number
+    emailEnabled: boolean
+    pushEnabled: boolean
+  }
+  tags?: string[]
+  isPrivate: boolean
+  location?: string
+  notes?: string
+  actualStartTime?: Date
+  actualEndTime?: Date
   reminderSent: boolean
   reminderScheduledAt?: Date
-  description?: string
-  tags?: string[]
+  isDeleted: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -21,8 +37,14 @@ export enum QuietBlockStatus {
   SCHEDULED = 'scheduled',
   ACTIVE = 'active',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  MISSED = 'missed'
+  CANCELLED = 'cancelled'
+}
+
+// Enum for priority values
+export enum QuietBlockPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high'
 }
 
 // QuietBlock schema
@@ -43,19 +65,18 @@ const QuietBlockSchema = new Schema<IQuietBlock>({
     type: String,
     required: [true, 'Title is required'],
     trim: true,
-    maxlength: [200, 'Title cannot be more than 200 characters'],
+    maxlength: [100, 'Title cannot be more than 100 characters'],
     minlength: [1, 'Title is required']
+  },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Description cannot be more than 500 characters']
   },
   startTime: {
     type: Date,
     required: [true, 'Start time is required'],
-    index: true,
-    validate: {
-      validator: function(startTime: Date) {
-        return startTime > new Date()
-      },
-      message: 'Start time must be in the future'
-    }
+    index: true
   },
   endTime: {
     type: Date,
@@ -67,14 +88,93 @@ const QuietBlockSchema = new Schema<IQuietBlock>({
       message: 'End time must be after start time'
     }
   },
+  priority: {
+    type: String,
+    enum: {
+      values: Object.values(QuietBlockPriority),
+      message: 'Priority must be one of: low, medium, high'
+    },
+    default: QuietBlockPriority.MEDIUM
+  },
   status: {
     type: String,
     enum: {
       values: Object.values(QuietBlockStatus),
-      message: 'Status must be one of: scheduled, active, completed, cancelled, missed'
+      message: 'Status must be one of: scheduled, active, completed, cancelled'
     },
     default: QuietBlockStatus.SCHEDULED,
     index: true
+  },
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  recurrencePattern: {
+    type: String,
+    enum: ['none', 'daily', 'weekly', 'monthly'],
+    default: 'none'
+  },
+  recurrenceEnd: {
+    type: Date,
+    validate: {
+      validator: function(this: IQuietBlock, recurrenceEnd: Date) {
+        if (!recurrenceEnd || !this.isRecurring) return true
+        return recurrenceEnd > this.startTime
+      },
+      message: 'Recurrence end date must be after start time'
+    }
+  },
+  reminderConfig: {
+    enabled: {
+      type: Boolean,
+      default: true
+    },
+    minutesBefore: {
+      type: Number,
+      default: 15,
+      min: [1, 'Reminder must be at least 1 minute before'],
+      max: [1440, 'Reminder cannot be more than 24 hours before']
+    },
+    emailEnabled: {
+      type: Boolean,
+      default: true
+    },
+    pushEnabled: {
+      type: Boolean,
+      default: false
+    }
+  },
+  tags: [{
+    type: String,
+    trim: true,
+    maxlength: [50, 'Tag cannot be more than 50 characters']
+  }],
+  isPrivate: {
+    type: Boolean,
+    default: false
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Location cannot be more than 200 characters']
+  },
+  notes: {
+    type: String,
+    trim: true,
+    maxlength: [1000, 'Notes cannot be more than 1000 characters']
+  },
+  actualStartTime: {
+    type: Date
+  },
+  actualEndTime: {
+    type: Date,
+    validate: {
+      validator: function(this: IQuietBlock, actualEndTime: Date) {
+        if (!actualEndTime || !this.actualStartTime) return true
+        return actualEndTime > this.actualStartTime
+      },
+      message: 'Actual end time must be after actual start time'
+    }
   },
   reminderSent: {
     type: Boolean,
@@ -91,16 +191,11 @@ const QuietBlockSchema = new Schema<IQuietBlock>({
       message: 'Reminder must be scheduled before the start time'
     }
   },
-  description: {
-    type: String,
-    trim: true,
-    maxlength: [1000, 'Description cannot be more than 1000 characters']
-  },
-  tags: [{
-    type: String,
-    trim: true,
-    maxlength: [50, 'Tag cannot be more than 50 characters']
-  }]
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  }
 }, {
   timestamps: true,
   collection: 'quietblocks'
@@ -152,7 +247,7 @@ QuietBlockSchema.methods.markAsCancelled = function() {
 }
 
 QuietBlockSchema.methods.markAsMissed = function() {
-  this.status = QuietBlockStatus.MISSED
+  this.status = QuietBlockStatus.CANCELLED // Using CANCELLED instead of MISSED
   return this.save()
 }
 

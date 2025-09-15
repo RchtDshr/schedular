@@ -1,7 +1,21 @@
 import { connectToDatabase } from '@/lib/mongodb'
-import QuietBlock, { type IQuietBlock, type QuietBlockCreateInput, type QuietBlockUpdateInput, QuietBlockStatus } from '@/models/QuietBlock'
+import QuietBlock, { type IQuietBlock, QuietBlockStatus } from '@/models/QuietBlock'
 import { UserService } from './userService'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import type { CreateQuietBlockInput, UpdateQuietBlockInput } from '@/lib/validations/quietBlockValidations'
+
+// Query options interface
+export interface QuietBlockQueryOptions {
+  status?: 'scheduled' | 'active' | 'completed' | 'cancelled'
+  startDate?: Date
+  endDate?: Date
+  limit?: number
+  offset?: number
+  sortBy?: 'startTime' | 'endTime' | 'createdAt' | 'priority' | 'title'
+  sortOrder?: 'asc' | 'desc'
+  tags?: string
+  priority?: 'low' | 'medium' | 'high'
+  isRecurring?: boolean
+}
 
 export class QuietBlockService {
   /**
@@ -9,27 +23,28 @@ export class QuietBlockService {
    * Ensures proper user ID mapping between Supabase and MongoDB
    */
   static async createQuietBlock(
-    supabaseUser: SupabaseUser,
-    blockData: Omit<QuietBlockCreateInput, 'supabaseUserId'>
+    supabaseUserId: string,
+    blockData: CreateQuietBlockInput
   ): Promise<IQuietBlock> {
     await connectToDatabase()
 
     try {
-      // Ensure user exists in MongoDB
-      const { user, mongoUserId } = await UserService.ensureUserExists(supabaseUser)
+      // Get MongoDB user by Supabase ID
+      const user = await UserService.getUserBySupabaseId(supabaseUserId)
+      if (!user) {
+        throw new Error('User not found')
+      }
 
       // Create the quiet block
       const quietBlockData: any = {
         ...blockData,
-        userId: mongoUserId,
-        supabaseUserId: supabaseUser.id,
-        startTime: new Date(blockData.startTime),
-        endTime: new Date(blockData.endTime)
+        userId: user._id,
+        supabaseUserId: supabaseUserId
       }
 
       // Calculate reminder time if specified
-      if (blockData.reminderMinutesBefore) {
-        const reminderTime = new Date(quietBlockData.startTime.getTime() - (blockData.reminderMinutesBefore * 60 * 1000))
+      if (blockData.reminderConfig?.enabled && blockData.reminderConfig.minutesBefore) {
+        const reminderTime = new Date(blockData.startTime.getTime() - (blockData.reminderConfig.minutesBefore * 60 * 1000))
         quietBlockData.reminderScheduledAt = reminderTime
       }
 
@@ -49,43 +64,146 @@ export class QuietBlockService {
    */
   static async getUserQuietBlocks(
     supabaseUserId: string,
-    filters?: {
-      status?: QuietBlockStatus
-      startDate?: Date
-      endDate?: Date
-      limit?: number
-    }
+    options?: QuietBlockQueryOptions
   ): Promise<IQuietBlock[]> {
     await connectToDatabase()
 
     try {
-      let query: any = { supabaseUserId }
+      // Migrate existing records that don't have isDeleted field
+      const migrationResult = await QuietBlock.updateMany(
+        { isDeleted: { $exists: false } },
+        { $set: { isDeleted: false } }
+      )
+      console.log('🔄 Migration result:', migrationResult)
+
+      // Verify migration worked by checking the block again
+      const verifyBlock = await QuietBlock.findOne({ supabaseUserId }).lean()
+      console.log('🔍 Block after migration:', { 
+        id: verifyBlock?._id, 
+        title: verifyBlock?.title, 
+        isDeleted: verifyBlock?.isDeleted 
+      })
+
+      let query: any = { 
+        supabaseUserId,
+        $or: [
+          { isDeleted: false },
+          { isDeleted: { $exists: false } },
+          { isDeleted: null },
+          { isDeleted: undefined }
+        ]
+      }
+
+      console.log('🔍 QuietBlockService query for user:', supabaseUserId)
 
       // Apply filters
-      if (filters?.status) {
-        query.status = filters.status
+      if (options?.status) {
+        query.status = options.status
       }
 
-      if (filters?.startDate || filters?.endDate) {
+      if (options?.priority) {
+        query.priority = options.priority
+      }
+
+      if (options?.isRecurring !== undefined) {
+        query.isRecurring = options.isRecurring
+      }
+
+      if (options?.startDate || options?.endDate) {
         query.startTime = {}
-        if (filters.startDate) {
-          query.startTime.$gte = filters.startDate
+        if (options.startDate) {
+          query.startTime.$gte = options.startDate
         }
-        if (filters.endDate) {
-          query.startTime.$lte = filters.endDate
+        if (options.endDate) {
+          query.startTime.$lte = options.endDate
         }
       }
 
-      const queryBuilder = QuietBlock.find(query).sort({ startTime: 1 })
-
-      if (filters?.limit) {
-        queryBuilder.limit(filters.limit)
+      if (options?.tags) {
+        // Split comma-separated tags and search for any of them
+        const tags = options.tags.split(',').map(tag => tag.trim())
+        query.tags = { $in: tags }
       }
 
-      return await queryBuilder.exec()
+      console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2))
+
+      // Build sort object
+      const sortBy = options?.sortBy || 'startTime'
+      const sortOrder = options?.sortOrder === 'desc' ? -1 : 1
+      const sort: any = { [sortBy]: sortOrder }
+
+      const queryBuilder = QuietBlock.find(query).sort(sort)
+
+      if (options?.limit) {
+        queryBuilder.limit(options.limit)
+      }
+
+      if (options?.offset) {
+        queryBuilder.skip(options.offset)
+      }
+
+      const results = await queryBuilder.exec()
+      console.log('📋 MongoDB query results:', results.length, 'documents')
+      
+      return results
     } catch (error) {
-      console.error('❌ Error getting quiet blocks:', error)
-      throw new Error(`Failed to get quiet blocks: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('❌ Error fetching quiet blocks:', error)
+      throw new Error(`Failed to fetch quiet blocks: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Get count of user's quiet blocks (for pagination)
+   */
+  static async getUserQuietBlocksCount(
+    supabaseUserId: string,
+    options?: QuietBlockQueryOptions
+  ): Promise<number> {
+    await connectToDatabase()
+
+    try {
+      let query: any = { 
+        supabaseUserId,
+        $or: [
+          { isDeleted: false },
+          { isDeleted: { $exists: false } },
+          { isDeleted: null },
+          { isDeleted: undefined }
+        ]
+      }
+
+      // Apply same filters as getUserQuietBlocks
+      if (options?.status) {
+        query.status = options.status
+      }
+
+      if (options?.priority) {
+        query.priority = options.priority
+      }
+
+      if (options?.isRecurring !== undefined) {
+        query.isRecurring = options.isRecurring
+      }
+
+      if (options?.startDate || options?.endDate) {
+        query.startTime = {}
+        if (options.startDate) {
+          query.startTime.$gte = options.startDate
+        }
+        if (options.endDate) {
+          query.startTime.$lte = options.endDate
+        }
+      }
+
+      if (options?.tags) {
+        const tags = options.tags.split(',').map(tag => tag.trim())
+        query.tags = { $in: tags }
+      }
+
+      return await QuietBlock.countDocuments(query)
+    } catch (error) {
+      console.error('❌ Error counting quiet blocks:', error)
+      throw new Error(`Failed to count quiet blocks: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -95,7 +213,7 @@ export class QuietBlockService {
   static async updateQuietBlock(
     quietBlockId: string,
     supabaseUserId: string,
-    updates: QuietBlockUpdateInput
+    updates: UpdateQuietBlockInput
   ): Promise<IQuietBlock | null> {
     await connectToDatabase()
 
@@ -134,9 +252,9 @@ export class QuietBlockService {
         quietBlock.tags = updates.tags
       }
 
-      // Recalculate reminder time if start time changed and reminder offset provided
-      if (updates.reminderMinutesBefore !== undefined && quietBlock.startTime) {
-        const reminderTime = new Date(quietBlock.startTime.getTime() - (updates.reminderMinutesBefore * 60 * 1000))
+      // Recalculate reminder time if reminder config or start time changed
+      if (updates.reminderConfig?.minutesBefore !== undefined && quietBlock.startTime) {
+        const reminderTime = new Date(quietBlock.startTime.getTime() - (updates.reminderConfig.minutesBefore * 60 * 1000))
         quietBlock.reminderScheduledAt = reminderTime
         quietBlock.reminderSent = false // Reset reminder status
       }
@@ -150,9 +268,56 @@ export class QuietBlockService {
   }
 
   /**
-   * Delete a quiet block
+   * Get a single quiet block by ID
    */
-  static async deleteQuietBlock(quietBlockId: string, supabaseUserId: string): Promise<boolean> {
+  static async getQuietBlockById(quietBlockId: string, supabaseUserId: string): Promise<IQuietBlock | null> {
+    await connectToDatabase()
+
+    try {
+      const quietBlock = await QuietBlock.findOne({
+        _id: quietBlockId,
+        supabaseUserId,
+        isDeleted: false
+      })
+
+      return quietBlock
+    } catch (error) {
+      console.error('❌ Error getting quiet block by ID:', error)
+      throw new Error(`Failed to get quiet block: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Delete a quiet block (soft delete)
+   */
+  static async deleteQuietBlock(quietBlockId: string, supabaseUserId: string): Promise<IQuietBlock | null> {
+    await connectToDatabase()
+
+    try {
+      const quietBlock = await QuietBlock.findOneAndUpdate(
+        {
+          _id: quietBlockId,
+          supabaseUserId,
+          isDeleted: false
+        },
+        {
+          isDeleted: true,
+          status: QuietBlockStatus.CANCELLED
+        },
+        { new: true }
+      )
+
+      return quietBlock
+    } catch (error) {
+      console.error('❌ Error deleting quiet block:', error)
+      throw new Error(`Failed to delete quiet block: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
+   * Delete a quiet block (hard delete)
+   */
+  static async hardDeleteQuietBlock(quietBlockId: string, supabaseUserId: string): Promise<boolean> {
     await connectToDatabase()
 
     try {
@@ -203,10 +368,28 @@ export class QuietBlockService {
   /**
    * Mark quiet block as completed
    */
-  static async completeQuietBlock(quietBlockId: string, supabaseUserId: string): Promise<IQuietBlock | null> {
-    return this.updateQuietBlock(quietBlockId, supabaseUserId, {
+  static async completeQuietBlock(
+    quietBlockId: string, 
+    supabaseUserId: string,
+    completeData?: { actualStartTime?: Date; actualEndTime?: Date; notes?: string }
+  ): Promise<IQuietBlock | null> {
+    const updateData: any = {
       status: QuietBlockStatus.COMPLETED
-    })
+    }
+
+    if (completeData?.actualStartTime) {
+      updateData.actualStartTime = completeData.actualStartTime
+    }
+
+    if (completeData?.actualEndTime) {
+      updateData.actualEndTime = completeData.actualEndTime
+    }
+
+    if (completeData?.notes) {
+      updateData.notes = completeData.notes
+    }
+
+    return this.updateQuietBlock(quietBlockId, supabaseUserId, updateData)
   }
 
   /**

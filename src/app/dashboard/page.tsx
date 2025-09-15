@@ -13,13 +13,6 @@ interface QuietBlock {
   endTime: string
   date: string
   priority: 'low' | 'medium' | 'high'
-  isRecurring: boolean
-  recurrencePattern?: {
-    type: 'daily' | 'weekly' | 'monthly'
-    interval: number
-    daysOfWeek?: number[]
-    endDate?: string
-  }
   tags: string[]
   isPrivate: boolean
   reminderEnabled: boolean

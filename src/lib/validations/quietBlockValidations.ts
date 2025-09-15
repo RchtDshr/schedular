@@ -10,11 +10,6 @@ export const StatusSchema = z.enum(['scheduled', 'active', 'completed', 'cancell
   message: 'Status must be scheduled, active, completed, or cancelled'
 })
 
-// Recurrence pattern validation
-export const RecurrencePatternSchema = z.enum(['none', 'daily', 'weekly', 'monthly'], {
-  message: 'Recurrence pattern must be none, daily, weekly, or monthly'
-})
-
 // Time validation helper (HH:MM format)
 const timeString = z.string().refine((val) => {
   const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
@@ -61,12 +56,6 @@ export const CreateQuietBlockSchema = z.object({
   endTime: timeString,
   
   priority: PrioritySchema.default('medium'),
-  
-  isRecurring: z.boolean().default(false),
-  
-  recurrencePattern: RecurrencePatternSchema.default('none'),
-  
-  recurrenceEnd: dateString.optional(),
   
   reminderConfig: ReminderConfigSchema,
   
@@ -139,26 +128,6 @@ export const CreateQuietBlockSchema = z.object({
     // Keep the original date field for MongoDB storage
     date: data.date
   }
-}).refine((data) => {
-  // If recurring, validate recurrence pattern and end date
-  if (data.isRecurring) {
-    return data.recurrencePattern !== 'none'
-  }
-  return true
-}, {
-  message: 'Recurrence pattern is required when isRecurring is true',
-  path: ['recurrencePattern']
-}).refine((data) => {
-  // If recurring, recurrence end should be after start time
-  if (data.isRecurring && data.recurrenceEnd) {
-    const startDateTime = new Date(`${data.date}T${data.startTime}`)
-    const recurrenceEndDate = new Date(data.recurrenceEnd)
-    return recurrenceEndDate > startDateTime
-  }
-  return true
-}, {
-  message: 'Recurrence end date must be after start time',
-  path: ['recurrenceEnd']
 })
 
 // Schema for updating a quiet block (all fields optional except validation rules)
@@ -183,12 +152,6 @@ export const UpdateQuietBlockSchema = z.object({
   priority: PrioritySchema.optional(),
   
   status: StatusSchema.optional(),
-  
-  isRecurring: z.boolean().optional(),
-  
-  recurrencePattern: RecurrencePatternSchema.optional(),
-  
-  recurrenceEnd: dateString.optional(),
   
   reminderConfig: ReminderConfigSchema,
   
@@ -243,7 +206,6 @@ export const QuietBlockQuerySchema = z.object({
   endDate: dateString.optional(),
   status: StatusSchema.optional(),
   priority: PrioritySchema.optional(),
-  isRecurring: z.boolean().optional(),
   tags: z.string().optional(), // Comma-separated tags
   limit: z.number().min(1).max(100).default(50).optional(),
   offset: z.number().min(0).default(0).optional(),

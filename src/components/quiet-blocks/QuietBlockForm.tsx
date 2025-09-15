@@ -36,9 +36,6 @@ const quietBlockFormSchema = z.object({
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
   priority: z.enum(['low', 'medium', 'high']),
-  isRecurring: z.boolean(),
-  recurrencePattern: z.enum(['none', 'daily', 'weekly', 'monthly']),
-  recurrenceEnd: z.string().optional(),
   reminderEnabled: z.boolean(),
   reminderMinutesBefore: z.number().min(1).max(1440),
   reminderEmailEnabled: z.boolean(),
@@ -92,9 +89,6 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
       startTime: initialData ? `${initialData.date}T${initialData.startTime}` : '',
       endTime: initialData ? `${initialData.date}T${initialData.endTime}` : '',
       priority: initialData?.priority || 'medium',
-      isRecurring: initialData?.isRecurring || false,
-      recurrencePattern: initialData?.recurrencePattern?.type || 'none',
-      recurrenceEnd: initialData?.recurrencePattern?.endDate || '',
       reminderEnabled: initialData?.reminderEnabled ?? true,
       reminderMinutesBefore: initialData?.reminderMinutesBefore || 15,
       reminderEmailEnabled: initialData?.reminderEmailEnabled ?? true,
@@ -107,7 +101,6 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
   })
 
   const watchedValues = watch()
-  const isRecurring = watch('isRecurring')
   const reminderEnabled = watch('reminderEnabled')
 
   const handleFormSubmit = async (data: QuietBlockFormData) => {
@@ -162,8 +155,6 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
         startTime: String(startDateTime.getHours()).padStart(2, '0') + ':' + String(startDateTime.getMinutes()).padStart(2, '0'),
         endTime: String(endDateTime.getHours()).padStart(2, '0') + ':' + String(endDateTime.getMinutes()).padStart(2, '0'),
         priority: data.priority,
-        isRecurring: data.isRecurring,
-        recurrencePattern: data.isRecurring && data.recurrencePattern !== 'none' ? data.recurrencePattern : 'none',
         reminderConfig: {
           enabled: data.reminderEnabled,
           minutesBefore: data.reminderMinutesBefore,
@@ -207,9 +198,6 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
       console.log('Reconstructed server datetime:', `${apiData.date}T${apiData.endTime}`)      // Add optional fields only if they have values
       if (data.description && data.description.trim()) {
         apiData.description = data.description
-      }
-      if (data.recurrenceEnd && data.recurrenceEnd.trim()) {
-        apiData.recurrenceEnd = data.recurrenceEnd
       }
       if (data.tags && data.tags.length > 0) {
         apiData.tags = data.tags
@@ -405,48 +393,6 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          {/* Recurrence Settings */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="isRecurring" 
-                checked={isRecurring}
-                onCheckedChange={(checked: boolean) => setValue('isRecurring', !!checked)}
-              />
-              <Label htmlFor="isRecurring">Recurring Schedule</Label>
-            </div>
-
-            {isRecurring && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-gray-200">
-                <div>
-                  <Label htmlFor="recurrencePattern">Repeat Pattern</Label>
-                  <Select 
-                    value={watchedValues.recurrencePattern} 
-                    onValueChange={(value: string) => setValue('recurrencePattern', value as any)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pattern" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="recurrenceEnd">End Recurrence</Label>
-                  <Input
-                    id="recurrenceEnd"
-                    type="date"
-                    {...register('recurrenceEnd')}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Reminder Settings */}

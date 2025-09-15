@@ -10,9 +10,6 @@ export interface IQuietBlock extends Document {
   endTime: Date
   priority: 'low' | 'medium' | 'high'
   status: 'scheduled' | 'active' | 'completed' | 'cancelled'
-  isRecurring: boolean
-  recurrencePattern: 'none' | 'daily' | 'weekly' | 'monthly'
-  recurrenceEnd?: Date
   reminderConfig: {
     enabled: boolean
     minutesBefore: number
@@ -104,25 +101,6 @@ const QuietBlockSchema = new Schema<IQuietBlock>({
     },
     default: QuietBlockStatus.SCHEDULED,
     index: true
-  },
-  isRecurring: {
-    type: Boolean,
-    default: false
-  },
-  recurrencePattern: {
-    type: String,
-    enum: ['none', 'daily', 'weekly', 'monthly'],
-    default: 'none'
-  },
-  recurrenceEnd: {
-    type: Date,
-    validate: {
-      validator: function(this: IQuietBlock, recurrenceEnd: Date) {
-        if (!recurrenceEnd || !this.isRecurring) return true
-        return recurrenceEnd > this.startTime
-      },
-      message: 'Recurrence end date must be after start time'
-    }
   },
   reminderConfig: {
     enabled: {

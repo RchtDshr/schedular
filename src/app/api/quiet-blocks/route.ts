@@ -45,16 +45,13 @@ export async function POST(request: NextRequest) {
 
     const quietBlockData: CreateQuietBlockInput = validation.data
 
-    // Convert string dates to Date objects for time validation and overlap check
-    const startDateTime = new Date(`${quietBlockData.date}T${quietBlockData.startTime}`)
-    const endDateTime = new Date(`${quietBlockData.date}T${quietBlockData.endTime}`)
+    // The validation transform already provides Date objects
+    const startDateTime = quietBlockData.startTime as Date
+    const endDateTime = quietBlockData.endTime as Date
 
     console.log('🕐 POST - Date conversion debug:')
-    console.log('quietBlockData.date:', quietBlockData.date)
-    console.log('quietBlockData.startTime:', quietBlockData.startTime)
-    console.log('quietBlockData.endTime:', quietBlockData.endTime)
-    console.log('Converted startDateTime:', startDateTime.toISOString())
-    console.log('Converted endDateTime:', endDateTime.toISOString())
+    console.log('startDateTime:', startDateTime.toISOString())
+    console.log('endDateTime:', endDateTime.toISOString())
     console.log('startDateTime valid:', !isNaN(startDateTime.getTime()))
     console.log('endDateTime valid:', !isNaN(endDateTime.getTime()))
 
@@ -129,9 +126,6 @@ export async function POST(request: NextRequest) {
         endTime: quietBlock.endTime,
         priority: quietBlock.priority,
         status: quietBlock.status,
-        isRecurring: quietBlock.isRecurring,
-        recurrencePattern: quietBlock.recurrencePattern,
-        recurrenceEnd: quietBlock.recurrenceEnd,
         reminderConfig: quietBlock.reminderConfig,
         tags: quietBlock.tags,
         isPrivate: quietBlock.isPrivate,
@@ -184,7 +178,6 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('endDate')) queryData.endDate = searchParams.get('endDate')
     if (searchParams.get('status')) queryData.status = searchParams.get('status')
     if (searchParams.get('priority')) queryData.priority = searchParams.get('priority')
-    if (searchParams.get('isRecurring')) queryData.isRecurring = searchParams.get('isRecurring') === 'true'
     if (searchParams.get('tags')) queryData.tags = searchParams.get('tags')
     if (searchParams.get('limit')) queryData.limit = parseInt(searchParams.get('limit')!)
     if (searchParams.get('offset')) queryData.offset = parseInt(searchParams.get('offset')!)
@@ -243,9 +236,6 @@ export async function GET(request: NextRequest) {
         endTime: String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0'),
         priority: block.priority,
         status: block.status,
-        isRecurring: block.isRecurring,
-        recurrencePattern: block.recurrencePattern,
-        recurrenceEnd: block.recurrenceEnd,
         reminderConfig: block.reminderConfig,
         reminderEnabled: block.reminderConfig?.enabled || false,
         reminderMinutesBefore: block.reminderConfig?.minutesBefore || 15,

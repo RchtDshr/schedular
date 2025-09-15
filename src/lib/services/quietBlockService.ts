@@ -14,7 +14,6 @@ export interface QuietBlockQueryOptions {
   sortOrder?: 'asc' | 'desc'
   tags?: string
   priority?: 'low' | 'medium' | 'high'
-  isRecurring?: boolean
 }
 
 export class QuietBlockService {
@@ -40,10 +39,9 @@ export class QuietBlockService {
         ...blockData,
         userId: user._id,
         supabaseUserId: supabaseUserId,
-        // Convert string dates to Date objects for MongoDB
-        startTime: new Date(`${blockData.date}T${blockData.startTime}`),
-        endTime: new Date(`${blockData.date}T${blockData.endTime}`),
-        recurrenceEnd: blockData.recurrenceEnd ? new Date(blockData.recurrenceEnd) : undefined
+        // startTime and endTime are already Date objects from validation transform
+        startTime: blockData.startTime,
+        endTime: blockData.endTime
       }
 
       // Calculate reminder time if specified
@@ -109,10 +107,6 @@ export class QuietBlockService {
         query.priority = options.priority
       }
 
-      if (options?.isRecurring !== undefined) {
-        query.isRecurring = options.isRecurring
-      }
-
       if (options?.startDate || options?.endDate) {
         query.startTime = {}
         if (options.startDate) {
@@ -136,10 +130,6 @@ export class QuietBlockService {
 
       if (options?.priority) {
         query.priority = options.priority
-      }
-
-      if (options?.isRecurring !== undefined) {
-        query.isRecurring = options.isRecurring
       }
 
       if (options?.startDate || options?.endDate) {
@@ -212,10 +202,6 @@ export class QuietBlockService {
 
       if (options?.priority) {
         query.priority = options.priority
-      }
-
-      if (options?.isRecurring !== undefined) {
-        query.isRecurring = options.isRecurring
       }
 
       if (options?.startDate || options?.endDate) {

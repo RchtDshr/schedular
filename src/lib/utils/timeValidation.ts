@@ -107,58 +107,6 @@ export function validateTimeSlot(startTime: Date, endTime: Date): { isValid: boo
 }
 
 /**
- * Generate recurring time slots from a base quiet block
- */
-export function generateRecurringSlots(
-  baseStartTime: Date,
-  baseEndTime: Date,
-  recurrencePattern: string,
-  endDate?: Date
-): TimeSlot[] {
-  const slots: TimeSlot[] = []
-  const maxRecurrences = 52 // Limit to 52 weeks to prevent infinite loops
-  let currentStart = new Date(baseStartTime)
-  let currentEnd = new Date(baseEndTime)
-  let count = 0
-
-  while (count < maxRecurrences) {
-    // Add current slot
-    slots.push({
-      startTime: new Date(currentStart),
-      endTime: new Date(currentEnd)
-    })
-
-    // Check if we've reached the end date
-    if (endDate && currentStart > endDate) {
-      break
-    }
-
-    // Calculate next occurrence based on pattern
-    switch (recurrencePattern.toLowerCase()) {
-      case 'daily':
-        currentStart.setDate(currentStart.getDate() + 1)
-        currentEnd.setDate(currentEnd.getDate() + 1)
-        break
-      case 'weekly':
-        currentStart.setDate(currentStart.getDate() + 7)
-        currentEnd.setDate(currentEnd.getDate() + 7)
-        break
-      case 'monthly':
-        currentStart.setMonth(currentStart.getMonth() + 1)
-        currentEnd.setMonth(currentEnd.getMonth() + 1)
-        break
-      default:
-        // No recurrence or unknown pattern
-        break
-    }
-
-    count++
-  }
-
-  return slots
-}
-
-/**
  * Format duration in a human-readable way
  */
 export function formatDuration(startTime: Date, endTime: Date): string {

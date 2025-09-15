@@ -14,13 +14,6 @@ interface QuietBlock {
   endTime: string
   date: string
   priority: 'low' | 'medium' | 'high'
-  isRecurring: boolean
-  recurrencePattern?: {
-    type: 'daily' | 'weekly' | 'monthly'
-    interval: number
-    daysOfWeek?: number[]
-    endDate?: string
-  }
   tags: string[]
   isPrivate: boolean
   reminderEnabled: boolean
@@ -264,14 +257,6 @@ export default function QuietBlockList({ onEdit, onDelete }: QuietBlockListProps
                           {tag}
                         </Badge>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Recurrence Info */}
-                  {block.isRecurring && block.recurrencePattern && (
-                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                      Repeats {block.recurrencePattern.type} 
-                      {block.recurrencePattern.interval > 1 && ` every ${block.recurrencePattern.interval}`}
                     </div>
                   )}
 

@@ -222,12 +222,18 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
       }
 
       console.log('Sending API data:', apiData)
+      console.log('Form submission details:')
+      console.log('isEditing:', isEditing)
+      console.log('initialData._id:', initialData?._id)
 
       const url = isEditing && initialData?._id 
         ? `/api/quiet-blocks/${initialData._id}`
         : '/api/quiet-blocks'
       
       const method = isEditing ? 'PUT' : 'POST'
+      
+      console.log('URL:', url)
+      console.log('Method:', method)
       
       const response = await fetch(url, {
         method,

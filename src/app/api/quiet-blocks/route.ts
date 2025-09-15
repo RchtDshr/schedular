@@ -45,8 +45,28 @@ export async function POST(request: NextRequest) {
 
     const quietBlockData: CreateQuietBlockInput = validation.data
 
+    // Convert string dates to Date objects for time validation and overlap check
+    const startDateTime = new Date(`${quietBlockData.date}T${quietBlockData.startTime}`)
+    const endDateTime = new Date(`${quietBlockData.date}T${quietBlockData.endTime}`)
+
+    console.log('🕐 POST - Date conversion debug:')
+    console.log('quietBlockData.date:', quietBlockData.date)
+    console.log('quietBlockData.startTime:', quietBlockData.startTime)
+    console.log('quietBlockData.endTime:', quietBlockData.endTime)
+    console.log('Converted startDateTime:', startDateTime.toISOString())
+    console.log('Converted endDateTime:', endDateTime.toISOString())
+    console.log('startDateTime valid:', !isNaN(startDateTime.getTime()))
+    console.log('endDateTime valid:', !isNaN(endDateTime.getTime()))
+
+    if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid date/time format provided' },
+        { status: 400 }
+      )
+    }
+
     // Additional time validation
-    const timeValidation = validateTimeSlot(quietBlockData.startTime, quietBlockData.endTime)
+    const timeValidation = validateTimeSlot(startDateTime, endDateTime)
     if (!timeValidation.isValid) {
       return NextResponse.json(
         { success: false, error: timeValidation.message },
@@ -56,12 +76,12 @@ export async function POST(request: NextRequest) {
 
     // Check for overlaps with existing quiet blocks
     const existingBlocks = await QuietBlockService.getUserQuietBlocks(supabaseUser.id, {
-      startDate: new Date(quietBlockData.startTime.getTime() - 24 * 60 * 60 * 1000), // 1 day before
-      endDate: new Date(quietBlockData.endTime.getTime() + 24 * 60 * 60 * 1000) // 1 day after
+      startDate: new Date(startDateTime.getTime() - 24 * 60 * 60 * 1000), // 1 day before
+      endDate: new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000) // 1 day after
     })
 
     const overlapCheck = checkQuietBlockOverlap(
-      { startTime: quietBlockData.startTime, endTime: quietBlockData.endTime },
+      { startTime: startDateTime, endTime: endDateTime },
       existingBlocks
     )
 

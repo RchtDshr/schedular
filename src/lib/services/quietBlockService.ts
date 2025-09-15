@@ -39,12 +39,16 @@ export class QuietBlockService {
       const quietBlockData: any = {
         ...blockData,
         userId: user._id,
-        supabaseUserId: supabaseUserId
+        supabaseUserId: supabaseUserId,
+        // Convert string dates to Date objects for MongoDB
+        startTime: new Date(`${blockData.date}T${blockData.startTime}`),
+        endTime: new Date(`${blockData.date}T${blockData.endTime}`),
+        recurrenceEnd: blockData.recurrenceEnd ? new Date(blockData.recurrenceEnd) : undefined
       }
 
       // Calculate reminder time if specified
       if (blockData.reminderConfig?.enabled && blockData.reminderConfig.minutesBefore) {
-        const reminderTime = new Date(blockData.startTime.getTime() - (blockData.reminderConfig.minutesBefore * 60 * 1000))
+        const reminderTime = new Date(quietBlockData.startTime.getTime() - (blockData.reminderConfig.minutesBefore * 60 * 1000))
         quietBlockData.reminderScheduledAt = reminderTime
       }
 
@@ -97,6 +101,35 @@ export class QuietBlockService {
       console.log('🔍 QuietBlockService query for user:', supabaseUserId)
 
       // Apply filters
+      if (options?.status) {
+        query.status = options.status
+      }
+
+      if (options?.priority) {
+        query.priority = options.priority
+      }
+
+      if (options?.isRecurring !== undefined) {
+        query.isRecurring = options.isRecurring
+      }
+
+      if (options?.startDate || options?.endDate) {
+        query.startTime = {}
+        if (options.startDate) {
+          query.startTime.$gte = options.startDate
+        }
+        if (options.endDate) {
+          query.startTime.$lte = options.endDate
+        }
+      }
+
+      if (options?.tags) {
+        // Split comma-separated tags and search for any of them
+        const tags = options.tags.split(',').map(tag => tag.trim())
+        query.tags = { $in: tags }
+      }
+
+      console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2))
       if (options?.status) {
         query.status = options.status
       }
@@ -237,11 +270,23 @@ export class QuietBlockService {
       }
 
       if (updates.startTime !== undefined) {
-        quietBlock.startTime = new Date(updates.startTime)
+        if (updates.date) {
+          // If we have a date field, combine date + time
+          quietBlock.startTime = new Date(`${updates.date}T${updates.startTime}`)
+        } else {
+          // Otherwise assume it's a full datetime string or try to parse as-is
+          quietBlock.startTime = new Date(updates.startTime)
+        }
       }
 
       if (updates.endTime !== undefined) {
-        quietBlock.endTime = new Date(updates.endTime)
+        if (updates.date) {
+          // If we have a date field, combine date + time
+          quietBlock.endTime = new Date(`${updates.date}T${updates.endTime}`)
+        } else {
+          // Otherwise assume it's a full datetime string or try to parse as-is
+          quietBlock.endTime = new Date(updates.endTime)
+        }
       }
 
       if (updates.status !== undefined) {

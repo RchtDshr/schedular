@@ -129,7 +129,9 @@ export default function Dashboard() {
             <CardContent>
               <QuietBlockForm 
                 initialData={editingBlock}
+                isEditing={!!editingBlock}
                 onSuccess={handleFormSuccess}
+                onCancel={editingBlock ? handleCancelEdit : undefined}
               />
             </CardContent>
           </Card>

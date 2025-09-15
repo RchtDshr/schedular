@@ -126,8 +126,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Additional time validation if times are being updated
     if (updateData.startTime && updateData.endTime) {
       // Convert string dates to Date objects for validation
-      const startTime = new Date(updateData.startTime)
-      const endTime = new Date(updateData.endTime)
+      // The frontend sends separate date + time fields, so we need to combine them
+      let startTime: Date;
+      let endTime: Date;
+      
+      if (updateData.date) {
+        // If we have separate date and time fields
+        startTime = new Date(`${updateData.date}T${updateData.startTime}`);
+        endTime = new Date(`${updateData.date}T${updateData.endTime}`);
+      } else {
+        // Fallback: try to parse as ISO strings (in case they're full datetime strings)
+        startTime = new Date(updateData.startTime);
+        endTime = new Date(updateData.endTime);
+      }
+      
+      console.log('🕐 Date conversion debug:')
+      console.log('updateData.date:', updateData.date)
+      console.log('updateData.startTime:', updateData.startTime)
+      console.log('updateData.endTime:', updateData.endTime)
+      console.log('Converted startTime:', startTime.toISOString())
+      console.log('Converted endTime:', endTime.toISOString())
+      console.log('startTime valid:', !isNaN(startTime.getTime()))
+      console.log('endTime valid:', !isNaN(endTime.getTime()))
+      
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid date/time format provided' },
+          { status: 400 }
+        )
+      }
       
       const timeValidation = validateTimeSlot(startTime, endTime)
       if (!timeValidation.isValid) {
@@ -138,6 +165,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
 
       // Check for overlaps with other quiet blocks if times are being changed
+      console.log('🔍 Checking overlaps with dates:', {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
+      })
+      
       const existingBlocks = await QuietBlockService.getUserQuietBlocks(supabaseUser.id, {
         startDate: new Date(startTime.getTime() - 24 * 60 * 60 * 1000), // 1 day before
         endDate: new Date(endTime.getTime() + 24 * 60 * 60 * 1000) // 1 day after

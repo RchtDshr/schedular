@@ -3,10 +3,10 @@ import { connectToDatabase } from '@/lib/mongodb'
 // Import User first and ensure it's registered
 import User, { IUser } from '@/models/User'
 import QuietBlock from '@/models/QuietBlock'
-import { Resend } from 'resend'
+import { EmailService } from '@/lib/services/emailService'
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Initialize EmailService
+const emailService = EmailService.getInstance()
 
 // Ensure User model is registered by accessing it
 const ensureUserModel = () => {
@@ -138,44 +138,23 @@ export async function POST(request: NextRequest) {
         const istStartTime = new Date(quietBlock.startTime.getTime() + (5.5 * 60 * 60 * 1000))
         const istEndTime = new Date(quietBlock.endTime.getTime() + (5.5 * 60 * 60 * 1000))
 
-        // Send the reminder email using Resend
-        const emailResult = await resend.emails.send({
-          from: process.env.FROM_EMAIL || 'onboarding@resend.dev',
-          to: [emailAddress],
-          subject: `Reminder: ${quietBlock.title} starts in ${minutesUntilStart} minutes`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Quiet Block Reminder</h2>
-              <p>Hello,</p>
-              <p>This is a reminder that your quiet block "<strong>${quietBlock.title}</strong>" is starting soon.</p>
-              
-              <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #666;">Block Details:</h3>
-                <p><strong>Title:</strong> ${quietBlock.title}</p>
-                <p><strong>Start Time:</strong> ${istStartTime.toLocaleString()} IST</p>
-                <p><strong>End Time:</strong> ${istEndTime.toLocaleString()} IST</p>
-                <p><strong>Time until start:</strong> ${minutesUntilStart} minutes</p>
-                ${quietBlock.description ? `<p><strong>Description:</strong> ${quietBlock.description}</p>` : ''}
-                ${quietBlock.location ? `<p><strong>Location:</strong> ${quietBlock.location}</p>` : ''}
-              </div>
-              
-              <p>Prepare to enter your focused quiet time!</p>
-              
-              <p style="margin-top: 30px;">
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://schedular-34hl.vercel.app'}/dashboard" 
-                   style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
-                  View Dashboard
-                </a>
-              </p>
-              
-              <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                This reminder was sent because you have email reminders enabled for this quiet block.
-              </p>
-            </div>
-          `
+        // Determine dashboard URL
+        const dashboardUrl = process.env.NEXT_PUBLIC_BASE_URL 
+          ? `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`
+          : 'https://schedular-34hl.vercel.app/dashboard'
+
+        // Send the reminder email using EmailService
+        const emailResult = await emailService.sendQuietBlockReminder({
+          userEmail: emailAddress,
+          userName: user.name,
+          quietBlockTitle: quietBlock.title,
+          startTime: istStartTime,
+          endTime: istEndTime,
+          minutesUntilStart,
+          dashboardUrl
         })
 
-        if (emailResult.data) {
+        if (emailResult.success) {
           // Mark reminder as sent
           await QuietBlock.findByIdAndUpdate(quietBlock._id, {
             reminderSent: true,
@@ -183,7 +162,6 @@ export async function POST(request: NextRequest) {
           })
 
           console.log(`✅ Reminder sent successfully for "${quietBlock.title}" to ${emailAddress}`)
-          console.log(`   Email ID: ${emailResult.data.id}`)
           successCount++
           
           results.push({
@@ -192,7 +170,6 @@ export async function POST(request: NextRequest) {
             userEmail: emailAddress,
             status: 'sent',
             minutesUntilStart,
-            emailId: emailResult.data.id,
             startTime: quietBlock.startTime.toISOString()
           })
         } else {
@@ -204,7 +181,7 @@ export async function POST(request: NextRequest) {
             title: quietBlock.title,
             userEmail: emailAddress,
             status: 'failed',
-            error: emailResult.error?.message || 'Unknown email error',
+            error: emailResult.error || 'Unknown email error',
             minutesUntilStart
           })
         }

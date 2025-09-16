@@ -68,8 +68,10 @@ export async function POST(request: NextRequest) {
       const reminderMinutes = block.reminderConfig?.minutesBefore || 15
       const reminderTime = new Date(block.startTime.getTime() - (reminderMinutes * 60 * 1000))
       
-      // Check if reminder time is within our 5-minute window
-      const shouldSendNow = reminderTime >= now && reminderTime <= fiveMinutesFromNow
+      // Check if reminder time is within our window (5 minutes before to 5 minutes after)
+      // This handles cases where cron runs exactly at reminder time or slightly late
+      const timeDiff = now.getTime() - reminderTime.getTime()
+      const shouldSendNow = timeDiff >= -300000 && timeDiff <= 300000 // -5 minutes to +5 minutes
       
       const minutesUntilStart = Math.round((block.startTime.getTime() - now.getTime()) / (1000 * 60))
       
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
         startTime: block.startTime.toISOString(),
         reminderTime: reminderTime.toISOString(),
         minutesUntilStart,
+        timeDiffMinutes: Math.round(timeDiff / (1000 * 60)),
         shouldSendNow
       })
 

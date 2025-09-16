@@ -1,5 +1,5 @@
 // Supabase Edge Function for sending reminder emails
-// Optimized for 90-second cron intervals
+// Runs every 5 minutes and checks for reminders due in the next 5 minutes
 
 // @ts-nocheck - This file is for Deno runtime, ignore Node.js type checking
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -181,11 +181,11 @@ class EdgeEmailService {
           </div>
           <div class="detail-row">
             <span class="label">Start Time:</span>
-            <span class="value">${startTime}</span>
+            <span class="value">${startTime} IST</span>
           </div>
           <div class="detail-row">
             <span class="label">End Time:</span>
-            <span class="value">${endTime}</span>
+            <span class="value">${endTime} IST</span>
           </div>
           <div class="detail-row">
             <span class="label">Duration:</span>
@@ -263,7 +263,7 @@ serve(async (req: any) => {
   }
 
   try {
-    console.log('🔄 Starting Supabase edge function reminder check (90s interval)...')
+    console.log('🔄 Starting Supabase edge function reminder check (5-minute interval)...')
 
     // Verify the request is from Supabase cron or authorized source
     const authHeader = req.headers.get('authorization')
@@ -280,17 +280,9 @@ serve(async (req: any) => {
       )
     }
 
-    // Get MongoDB connection string
-    const mongoUri = Deno.env.get('MONGODB_URI')
-    if (!mongoUri) {
-      throw new Error('MONGODB_URI environment variable is required')
-    }
-
-    // Since we can't use Mongoose in edge functions, we'll use MongoDB native driver
-    // or make HTTP requests to our Next.js API
+    // Call our Next.js API endpoint to get reminder data and send emails
     const nextjsApiUrl = Deno.env.get('NEXTJS_API_URL') || 'https://schedular-34hl.vercel.app'
     
-    // Call our existing Next.js API endpoint
     const response = await fetch(`${nextjsApiUrl}/api/cron/send-reminders`, {
       method: 'POST',
       headers: {
@@ -312,7 +304,7 @@ serve(async (req: any) => {
       JSON.stringify({
         ...result,
         source: 'supabase-edge-function',
-        interval: '90 seconds'
+        interval: '5 minutes'
       }),
       { 
         status: 200,

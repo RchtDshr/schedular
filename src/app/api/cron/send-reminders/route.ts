@@ -131,6 +131,10 @@ export async function POST(request: NextRequest) {
         console.log(`   Start time: ${quietBlock.startTime.toISOString()}`)
         console.log(`   Minutes until start: ${minutesUntilStart}`)
 
+        // Convert UTC times to IST (UTC+5:30) for display in email
+        const istStartTime = new Date(quietBlock.startTime.getTime() + (5.5 * 60 * 60 * 1000))
+        const istEndTime = new Date(quietBlock.endTime.getTime() + (5.5 * 60 * 60 * 1000))
+
         // Send the reminder email using Resend
         const emailResult = await resend.emails.send({
           from: process.env.FROM_EMAIL || 'onboarding@resend.dev',
@@ -145,8 +149,8 @@ export async function POST(request: NextRequest) {
               <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="margin-top: 0; color: #666;">Block Details:</h3>
                 <p><strong>Title:</strong> ${quietBlock.title}</p>
-                <p><strong>Start Time:</strong> ${quietBlock.startTime.toLocaleString()}</p>
-                <p><strong>End Time:</strong> ${quietBlock.endTime.toLocaleString()}</p>
+                <p><strong>Start Time:</strong> ${istStartTime.toLocaleString()} IST</p>
+                <p><strong>End Time:</strong> ${istEndTime.toLocaleString()} IST</p>
                 <p><strong>Time until start:</strong> ${minutesUntilStart} minutes</p>
                 ${quietBlock.description ? `<p><strong>Description:</strong> ${quietBlock.description}</p>` : ''}
                 ${quietBlock.location ? `<p><strong>Location:</strong> ${quietBlock.location}</p>` : ''}

@@ -203,11 +203,11 @@ export class EdgeOptimizedEmailService {
     <body>
       <div class="container">
         <div class="header">
-          <h1>🔔 Quiet Block Reminder</h1>
+          <h1>Quiet Block Reminder</h1>
         </div>
         
         <div class="content">
-          <p style="font-size: 18px; margin-bottom: 24px;">Hello ${userName},</p>
+          <p style="font-size: 18px; margin-bottom: 24px;">Hello,</p>
           
           <div class="alert-box">
             <strong>Your quiet block "${quietBlockTitle}" starts in ${minutesUntilStart} minute${minutesUntilStart !== 1 ? 's' : ''}!</strong>

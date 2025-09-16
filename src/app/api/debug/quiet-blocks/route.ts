@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
+// Import User first to ensure model is registered before QuietBlock
+import User from '@/models/User'
 import QuietBlock from '@/models/QuietBlock'
 
 // Debug endpoint to check quiet block states

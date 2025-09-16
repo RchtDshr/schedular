@@ -12,7 +12,7 @@ SELECT cron.schedule(
   SELECT
     net.http_post(
       url := 'https://wonvdgabgxdqceugsnfp.supabase.co/functions/v1/send-reminders',
-      headers := '{"Authorization": "Bearer YOUR_CRON_SECRET", "Content-Type": "application/json"}'::jsonb
+      headers := '{"Authorization": "Bearer rachita17d", "Content-Type": "application/json"}'::jsonb
     );
   $$
 );
@@ -25,7 +25,7 @@ SELECT cron.schedule(
   SELECT
     net.http_post(
       url := 'https://wonvdgabgxdqceugsnfp.supabase.co/functions/v1/send-reminders',
-      headers := '{"Authorization": "Bearer YOUR_CRON_SECRET", "Content-Type": "application/json"}'::jsonb
+      headers := '{"Authorization": "Bearer rachita17d", "Content-Type": "application/json"}'::jsonb
     );
   $$
 );

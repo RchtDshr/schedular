@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
-// Import User first to ensure model is registered before QuietBlock
+// Import User first and ensure it's registered
 import User, { IUser } from '@/models/User'
 import QuietBlock from '@/models/QuietBlock'
 import { EmailService } from '@/lib/services/emailService'
+
+// Ensure User model is registered by accessing it
+const ensureUserModel = () => {
+  try {
+    return User
+  } catch (error) {
+    console.log('User model registration check:', error)
+    return User
+  }
+}
 
 // This API route handles sending reminder emails for upcoming quiet blocks
 // Optimized for Supabase cron jobs running every 90 seconds
@@ -23,6 +33,10 @@ export async function POST(request: NextRequest) {
 
     // Connect to database
     await connectToDatabase()
+    
+    // Ensure User model is registered before using populate
+    ensureUserModel()
+    console.log('✅ User model ensured')
 
     // Get the current time and calculate precise time windows
     const now = new Date()
@@ -32,6 +46,7 @@ export async function POST(request: NextRequest) {
     console.log(`🔍 Looking for quiet blocks between ${now.toISOString()} and ${lookAheadTime.toISOString()}`)
 
     // Find all scheduled quiet blocks that might need reminders
+    // NOTE: Avoiding .populate() due to serverless model registration issues
     const upcomingQuietBlocks = await QuietBlock.find({
       status: 'scheduled',
       reminderSent: false,
@@ -39,7 +54,7 @@ export async function POST(request: NextRequest) {
         $gte: now,
         $lte: lookAheadTime
       }
-    }).populate('userId')
+    })
 
     console.log(`📋 Found ${upcomingQuietBlocks.length} quiet blocks to check for reminders`)
 
@@ -59,10 +74,10 @@ export async function POST(request: NextRequest) {
     // Process each quiet block
     for (const quietBlock of upcomingQuietBlocks) {
       try {
-        // Check if userId is populated (should be a User document)
-        const user = quietBlock.userId as any as IUser
+        // Manually fetch user instead of using populate
+        const user = await User.findById(quietBlock.userId) as IUser
         if (!user || !user.email) {
-          console.error(`❌ User not found or populated for quiet block "${quietBlock.title}"`)
+          console.error(`❌ User not found for quiet block "${quietBlock.title}"`)
           errorCount++
           continue
         }

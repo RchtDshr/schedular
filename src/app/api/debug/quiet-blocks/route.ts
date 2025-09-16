@@ -13,23 +13,28 @@ export async function GET(request: NextRequest) {
     const next24Hours = new Date(now.getTime() + (24 * 60 * 60 * 1000))
     
     // Find all upcoming quiet blocks with details
+    // NOTE: Avoiding .populate() due to serverless model registration issues
     const allUpcoming = await QuietBlock.find({
       status: 'scheduled',
       isDeleted: { $ne: true },
       startTime: { $gte: now, $lte: next24Hours }
     })
-    .populate('userId', 'name email')
     .select('title startTime endTime reminderConfig reminderSent reminderScheduledAt userId')
     .sort({ startTime: 1 })
     .limit(20)
 
-    const details = allUpcoming.map(block => {
+    const details = []
+    
+    for (const block of allUpcoming) {
+      // Manually fetch user instead of using populate
+      const user = await User.findById(block.userId)
+      
       const reminderMinutes = block.reminderConfig?.minutesBefore || 15
       const reminderTime = new Date(block.startTime.getTime() - (reminderMinutes * 60 * 1000))
       const minutesUntilReminder = Math.round((reminderTime.getTime() - now.getTime()) / (1000 * 60))
       const minutesUntilStart = Math.round((block.startTime.getTime() - now.getTime()) / (1000 * 60))
       
-      return {
+      details.push({
         id: block._id,
         title: block.title,
         startTime: block.startTime,
@@ -40,10 +45,10 @@ export async function GET(request: NextRequest) {
         emailEnabled: block.reminderConfig?.emailEnabled,
         reminderSent: block.reminderSent,
         reminderScheduledAt: block.reminderScheduledAt,
-        userEmail: (block.userId as any)?.email,
+        userEmail: user?.email || 'unknown',
         shouldSendNow: now >= reminderTime && !block.reminderSent && block.reminderConfig?.enabled && block.reminderConfig?.emailEnabled
-      }
-    })
+      })
+    }
 
     return NextResponse.json({
       message: 'Debug quiet blocks',

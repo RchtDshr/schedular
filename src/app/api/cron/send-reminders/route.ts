@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #333;">Quiet Block Reminder</h2>
-              <p>Hello ${user.name},</p>
+              <p>Hello,</p>
               <p>This is a reminder that your quiet block "<strong>${quietBlock.title}</strong>" is starting soon.</p>
               
               <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
               <p>Prepare to enter your focused quiet time!</p>
               
               <p style="margin-top: 30px;">
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard" 
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://schedular-34hl.vercel.app'}/dashboard" 
                    style="background-color: #007cba; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
                   View Dashboard
                 </a>

@@ -186,7 +186,6 @@ export async function GET(request: NextRequest) {
 
     // Ensure user exists in MongoDB
     const { user: mongoUser } = await UserService.ensureUserExists(supabaseUser)
-    console.log('🔍 MongoDB user synced:', mongoUser.supabaseId)
 
     // Parse query parameters
     const { searchParams } = new URL(request.url)
@@ -226,16 +225,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get quiet blocks from MongoDB
-    console.log('🔍 Fetching quiet blocks for user:', supabaseUser.id)
-    console.log('🔍 Service query options:', JSON.stringify(serviceQuery, null, 2))
-    
     const quietBlocks = await QuietBlockService.getUserQuietBlocks(supabaseUser.id, serviceQuery)
-    console.log('📋 Found quiet blocks:', quietBlocks.length)
-    console.log('📋 Raw blocks data:', JSON.stringify(quietBlocks.slice(0, 2), null, 2)) // Log first 2 blocks
-
+    
     // Get total count for pagination
     const totalCount = await QuietBlockService.getUserQuietBlocksCount(supabaseUser.id, serviceQuery)
-    console.log('📊 Total count:', totalCount)
 
     // Format response - convert UTC back to IST for display
     const formattedBlocks = quietBlocks.map(block => {
@@ -246,11 +239,6 @@ export async function GET(request: NextRequest) {
       // Add 5 hours 30 minutes to convert UTC to IST
       const startDateIST = new Date(startDateUTC.getTime() + (5.5 * 60 * 60 * 1000))
       const endDateIST = new Date(endDateUTC.getTime() + (5.5 * 60 * 60 * 1000))
-      
-      console.log('Display conversion:')
-      console.log('UTC start:', startDateUTC.toISOString())
-      console.log('IST start:', startDateIST.toISOString())
-      console.log('Display time:', startDateIST.toLocaleString('en-IN'))
       
       return {
         _id: (block._id as any).toString(),

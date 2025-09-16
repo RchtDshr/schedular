@@ -71,32 +71,11 @@ export class QuietBlockService {
     await connectToDatabase()
 
     try {
-      // Migrate existing records that don't have isDeleted field
-      const migrationResult = await QuietBlock.updateMany(
-        { isDeleted: { $exists: false } },
-        { $set: { isDeleted: false } }
-      )
-      console.log('🔄 Migration result:', migrationResult)
-
-      // Verify migration worked by checking the block again
-      const verifyBlock = await QuietBlock.findOne({ supabaseUserId }).lean()
-      console.log('🔍 Block after migration:', { 
-        id: verifyBlock?._id, 
-        title: verifyBlock?.title, 
-        isDeleted: verifyBlock?.isDeleted 
-      })
-
+      // Simple query - much faster
       const query: any = { 
         supabaseUserId,
-        $or: [
-          { isDeleted: false },
-          { isDeleted: { $exists: false } },
-          { isDeleted: null },
-          { isDeleted: undefined }
-        ]
+        isDeleted: { $ne: true } // Simple not-deleted check
       }
-
-      console.log('🔍 QuietBlockService query for user:', supabaseUserId)
 
       // Apply filters
       if (options?.status) {
@@ -123,33 +102,6 @@ export class QuietBlockService {
         query.tags = { $in: tags }
       }
 
-      console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2))
-      if (options?.status) {
-        query.status = options.status
-      }
-
-      if (options?.priority) {
-        query.priority = options.priority
-      }
-
-      if (options?.startDate || options?.endDate) {
-        query.startTime = {}
-        if (options.startDate) {
-          query.startTime.$gte = options.startDate
-        }
-        if (options.endDate) {
-          query.startTime.$lte = options.endDate
-        }
-      }
-
-      if (options?.tags) {
-        // Split comma-separated tags and search for any of them
-        const tags = options.tags.split(',').map(tag => tag.trim())
-        query.tags = { $in: tags }
-      }
-
-      console.log('🔍 Final MongoDB query:', JSON.stringify(query, null, 2))
-
       // Build sort object
       const sortBy = options?.sortBy || 'startTime'
       const sortOrder = options?.sortOrder === 'desc' ? -1 : 1
@@ -166,7 +118,6 @@ export class QuietBlockService {
       }
 
       const results = await queryBuilder.exec()
-      console.log('📋 MongoDB query results:', results.length, 'documents')
       
       return results
     } catch (error) {
@@ -187,12 +138,7 @@ export class QuietBlockService {
     try {
       const query: any = { 
         supabaseUserId,
-        $or: [
-          { isDeleted: false },
-          { isDeleted: { $exists: false } },
-          { isDeleted: null },
-          { isDeleted: undefined }
-        ]
+        isDeleted: { $ne: true } // Simple not-deleted check
       }
 
       // Apply same filters as getUserQuietBlocks

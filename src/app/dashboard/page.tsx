@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
 import QuietBlockForm from '@/components/quiet-blocks/QuietBlockForm'
 import QuietBlockList from '@/components/quiet-blocks/QuietBlockList'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button, Navbar } from '@/components/ui'
 
 interface QuietBlock {
   _id: string
@@ -28,6 +30,32 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('list')
   const [editingBlock, setEditingBlock] = useState<QuietBlock | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/login')
+    }
+  }, [user, loading, router])
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything if not authenticated (redirect is in progress)
+  if (!user) {
+    return null
+  }
 
   const handleFormSuccess = () => {
     setActiveTab('list')
@@ -51,6 +79,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen text-gray-900 bg-gray-50">
+      {/* Navigation Bar */}
+      <Navbar />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">

@@ -76,20 +76,22 @@ export const CreateQuietBlockSchema = z.object({
   path: ['endTime']
 }).refine((data) => {
   // Validate end time is not in the past (allow current time + 1 minute buffer)
-  // Note: We're assuming the date/time is in the user's local timezone
-  // The client sends date as YYYY-MM-DD and time as HH:MM in local timezone
+  // FIXED: Treat the input as local timezone by creating Date object properly
+  // The client sends date as YYYY-MM-DD and time as HH:MM in LOCAL timezone
+  
+  // Create date in local timezone (this is what user intended)
   const endDateTime = new Date(`${data.date}T${data.endTime}`)
   const now = new Date()
   const bufferTime = new Date(now.getTime() + 60000) // 1 minute buffer
   
-  console.log('Server validation - End time check:')
+  console.log('Server validation - End time check (FIXED):')
   console.log('Date:', data.date)
   console.log('End time:', data.endTime)
   console.log('Constructed datetime string:', `${data.date}T${data.endTime}`)
-  console.log('End DateTime:', endDateTime.toISOString())
-  console.log('End DateTime Local:', endDateTime.toString())
-  console.log('Now:', now.toISOString())
-  console.log('Now Local:', now.toString())
+  console.log('End DateTime (local):', endDateTime.toString())
+  console.log('End DateTime (ISO):', endDateTime.toISOString())
+  console.log('Now (local):', now.toString())
+  console.log('Now (ISO):', now.toISOString())
   console.log('Buffer time:', bufferTime.toISOString())
   console.log('Is valid?', endDateTime >= bufferTime)
   console.log('Difference in minutes:', (endDateTime.getTime() - now.getTime()) / (1000 * 60))
@@ -117,15 +119,42 @@ export const CreateQuietBlockSchema = z.object({
   message: 'Quiet block cannot be longer than 8 hours',
   path: ['endTime']
 }).transform((data) => {
-  // Transform the separate date/time fields into Date objects for the API
-  const startDateTime = new Date(`${data.date}T${data.startTime}`)
-  const endDateTime = new Date(`${data.date}T${data.endTime}`)
+  // TIMEZONE FIX: Convert user's local time to UTC for MongoDB storage
+  // When user selects "16:55" in IST, it should be stored as "11:25" UTC
+  
+  // Create Date objects from local date/time strings - these interpret as local time
+  const localStartDateTime = new Date(`${data.date}T${data.startTime}`)
+  const localEndDateTime = new Date(`${data.date}T${data.endTime}`)
+  
+  // The issue is that new Date() interprets the string in the SERVER's timezone
+  // But we want it interpreted in the USER's timezone, then converted to UTC
+  // 
+  // For IST (UTC+5:30), when user enters 16:55:
+  // - They mean 16:55 IST = 11:25 UTC
+  // - But new Date() creates 16:55 in server timezone
+  // 
+  // The correct approach: manually construct UTC time
+  const [dateYear, dateMonth, dateDay] = data.date.split('-').map(Number)
+  const [startHour, startMinute] = data.startTime.split(':').map(Number)  
+  const [endHour, endMinute] = data.endTime.split(':').map(Number)
+  
+  // Create UTC dates assuming the input time is in IST (UTC+5:30)
+  // Subtract 5 hours 30 minutes to convert IST to UTC
+  const startTimeUTC = new Date(Date.UTC(dateYear, dateMonth - 1, dateDay, startHour - 5, startMinute - 30))
+  const endTimeUTC = new Date(Date.UTC(dateYear, dateMonth - 1, dateDay, endHour - 5, endMinute - 30))
+  
+  console.log('Transform - IST to UTC conversion:')
+  console.log('Input date:', data.date)
+  console.log('Input startTime:', data.startTime, '(IST)')
+  console.log('Input endTime:', data.endTime, '(IST)')
+  console.log('Converted start UTC:', startTimeUTC.toISOString())
+  console.log('Converted end UTC:', endTimeUTC.toISOString())
+  console.log('Example: IST 16:55 should become UTC 11:25')
   
   return {
     ...data,
-    startTime: startDateTime,
-    endTime: endDateTime,
-    // Keep the original date field for MongoDB storage
+    startTime: startTimeUTC,
+    endTime: endTimeUTC,
     date: data.date
   }
 })

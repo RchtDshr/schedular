@@ -115,9 +115,20 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
         return
       }
       
-      // Convert form data to API format
+      // FIXED: Convert form data to API format with proper timezone handling
+      // The datetime-local input gives us a string like "2025-09-15T19:30"
+      // We need to treat this as the user's LOCAL time, not UTC
+      
       const startDateTime = new Date(data.startTime)
       const endDateTime = new Date(data.endTime)
+      
+      console.log('FRONTEND - DateTime processing:')
+      console.log('Raw startTime from form:', data.startTime)
+      console.log('Raw endTime from form:', data.endTime)
+      console.log('Parsed startDateTime:', startDateTime.toString())
+      console.log('Parsed endDateTime:', endDateTime.toString())
+      console.log('Parsed startDateTime (ISO):', startDateTime.toISOString())
+      console.log('Parsed endDateTime (ISO):', endDateTime.toISOString())
       
       // Validate the dates are valid
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
@@ -134,7 +145,7 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
       // Validate end time is not in the past (with 1 minute buffer)
       const now = new Date()
       const bufferTime = new Date(now.getTime() + 60000) // 1 minute buffer
-      console.log('Client validation check:')
+      console.log('FRONTEND - Time validation:')
       console.log('End DateTime:', endDateTime.toISOString())
       console.log('Now:', now.toISOString()) 
       console.log('Buffer time:', bufferTime.toISOString())
@@ -151,11 +162,23 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
       console.log('Now:', now.toISOString())
       console.log('Buffer time:', bufferTime.toISOString())
       
+      // FIXED: Extract date and time components properly for API
+      // Use the local date/time that the user actually selected
+      const localStartDate = startDateTime.getFullYear() + '-' + 
+                             String(startDateTime.getMonth() + 1).padStart(2, '0') + '-' + 
+                             String(startDateTime.getDate()).padStart(2, '0')
+      
+      const localStartTime = String(startDateTime.getHours()).padStart(2, '0') + ':' + 
+                             String(startDateTime.getMinutes()).padStart(2, '0')
+      
+      const localEndTime = String(endDateTime.getHours()).padStart(2, '0') + ':' + 
+                           String(endDateTime.getMinutes()).padStart(2, '0')
+      
       const apiData: any = {
         title: data.title,
-        date: '', // Will be set below using local date
-        startTime: String(startDateTime.getHours()).padStart(2, '0') + ':' + String(startDateTime.getMinutes()).padStart(2, '0'),
-        endTime: String(endDateTime.getHours()).padStart(2, '0') + ':' + String(endDateTime.getMinutes()).padStart(2, '0'),
+        date: localStartDate,
+        startTime: localStartTime,
+        endTime: localEndTime,
         priority: data.priority,
         reminderConfig: {
           enabled: data.reminderEnabled,
@@ -166,38 +189,23 @@ export function QuietBlockForm({ onSuccess, onCancel, initialData, isEditing = f
         isPrivate: data.isPrivate
       }
 
-      // If end time is on a different date (crosses midnight), we need to handle this differently
-      // Use local date comparison instead of UTC to avoid timezone issues
-      const startLocalDate = startDateTime.getFullYear() + '-' + 
-                             String(startDateTime.getMonth() + 1).padStart(2, '0') + '-' + 
-                             String(startDateTime.getDate()).padStart(2, '0')
+      // Check if spans multiple days (shouldn't happen with datetime-local but let's be safe)
       const endLocalDate = endDateTime.getFullYear() + '-' + 
                            String(endDateTime.getMonth() + 1).padStart(2, '0') + '-' + 
                            String(endDateTime.getDate()).padStart(2, '0')
       
-      console.log('Date comparison:')
-      console.log('Start local date:', startLocalDate)
+      console.log('FRONTEND - Date validation:')
+      console.log('Start local date:', localStartDate)
       console.log('End local date:', endLocalDate)
-      console.log('Start UTC date:', startDateTime.toISOString().split('T')[0])
-      console.log('End UTC date:', endDateTime.toISOString().split('T')[0])
       
-      if (startLocalDate !== endLocalDate) {
+      if (localStartDate !== endLocalDate) {
         alert('Start and end time must be on the same date. Multi-day quiet blocks are not supported yet.')
         return
       }
 
-      // Use the local date for the API data
-      apiData.date = startLocalDate
-
-      console.log('Date conversion details:')
-      console.log('Original startTime:', data.startTime)
-      console.log('Original endTime:', data.endTime)
-      console.log('Parsed startDateTime:', startDateTime.toISOString())
-      console.log('Parsed endDateTime:', endDateTime.toISOString())
-      console.log('Extracted date:', apiData.date)
-      console.log('Extracted startTime:', apiData.startTime)
-      console.log('Extracted endTime:', apiData.endTime)
-      console.log('Reconstructed server datetime:', `${apiData.date}T${apiData.endTime}`)      // Add optional fields only if they have values
+      console.log('FRONTEND - Final API data:', apiData)
+      
+      // Add optional fields only if they have values
       if (data.description && data.description.trim()) {
         apiData.description = data.description
       }

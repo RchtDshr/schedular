@@ -237,22 +237,31 @@ export async function GET(request: NextRequest) {
     const totalCount = await QuietBlockService.getUserQuietBlocksCount(supabaseUser.id, serviceQuery)
     console.log('📊 Total count:', totalCount)
 
-    // Format response
+    // Format response - convert UTC back to IST for display
     const formattedBlocks = quietBlocks.map(block => {
-      // Extract date and time in local timezone format
-      const startDate = new Date(block.startTime)
-      const endDate = new Date(block.endTime)
+      // Convert UTC dates back to IST for display (UTC+5:30)
+      const startDateUTC = new Date(block.startTime)
+      const endDateUTC = new Date(block.endTime)
+      
+      // Add 5 hours 30 minutes to convert UTC to IST
+      const startDateIST = new Date(startDateUTC.getTime() + (5.5 * 60 * 60 * 1000))
+      const endDateIST = new Date(endDateUTC.getTime() + (5.5 * 60 * 60 * 1000))
+      
+      console.log('Display conversion:')
+      console.log('UTC start:', startDateUTC.toISOString())
+      console.log('IST start:', startDateIST.toISOString())
+      console.log('Display time:', startDateIST.toLocaleString('en-IN'))
       
       return {
         _id: (block._id as any).toString(),
         id: (block._id as any).toString(),
         title: block.title,
         description: block.description,
-        date: startDate.getFullYear() + '-' + 
-              String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
-              String(startDate.getDate()).padStart(2, '0'),
-        startTime: String(startDate.getHours()).padStart(2, '0') + ':' + String(startDate.getMinutes()).padStart(2, '0'),
-        endTime: String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0'),
+        date: startDateIST.getFullYear() + '-' + 
+              String(startDateIST.getMonth() + 1).padStart(2, '0') + '-' + 
+              String(startDateIST.getDate()).padStart(2, '0'),
+        startTime: String(startDateIST.getHours()).padStart(2, '0') + ':' + String(startDateIST.getMinutes()).padStart(2, '0'),
+        endTime: String(endDateIST.getHours()).padStart(2, '0') + ':' + String(endDateIST.getMinutes()).padStart(2, '0'),
         priority: block.priority,
         status: block.status,
         reminderConfig: block.reminderConfig,
